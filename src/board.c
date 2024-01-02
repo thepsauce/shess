@@ -8,47 +8,47 @@ void board_setup_starting(Board *board)
 	board->flags |= CASTLE_SHORT_WHITE | CASTLE_LONG_WHITE |
 		CASTLE_SHORT_BLACK | CASTLE_LONG_BLACK;
 
-	BOARD_SET(board, 0, MAKE_PIECE(SIDE_WHITE, TYPE_ROOK));
-	BOARD_SET(board, 1, MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT));
-	BOARD_SET(board, 2, MAKE_PIECE(SIDE_WHITE, TYPE_BISHOP));
-	BOARD_SET(board, 3, MAKE_PIECE(SIDE_WHITE, TYPE_QUEEN));
-	BOARD_SET(board, 4, MAKE_PIECE(SIDE_WHITE, TYPE_KING));
-	BOARD_SET(board, 5, MAKE_PIECE(SIDE_WHITE, TYPE_BISHOP));
-	BOARD_SET(board, 6, MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT));
-	BOARD_SET(board, 7, MAKE_PIECE(SIDE_WHITE, TYPE_ROOK));
+	BOARD_SET(board, 0, MAKE_PIECE(SIDE_BLACK, TYPE_ROOK));
+	BOARD_SET(board, 1, MAKE_PIECE(SIDE_BLACK, TYPE_KNIGHT));
+	BOARD_SET(board, 2, MAKE_PIECE(SIDE_BLACK, TYPE_BISHOP));
+	BOARD_SET(board, 3, MAKE_PIECE(SIDE_BLACK, TYPE_QUEEN));
+	BOARD_SET(board, 4, MAKE_PIECE(SIDE_BLACK, TYPE_KING));
+	BOARD_SET(board, 5, MAKE_PIECE(SIDE_BLACK, TYPE_BISHOP));
+	BOARD_SET(board, 6, MAKE_PIECE(SIDE_BLACK, TYPE_KNIGHT));
+	BOARD_SET(board, 7, MAKE_PIECE(SIDE_BLACK, TYPE_ROOK));
 
-	BOARD_SET(board, 8, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 9, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 10, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 11, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 12, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 13, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 14, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
-	BOARD_SET(board, 15, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 8, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 9, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 10, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 11, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 12, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 13, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 14, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 15, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
 
-	BOARD_SET(board, 48, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 49, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 50, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 51, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 52, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 53, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 54, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
-	BOARD_SET(board, 55, MAKE_PIECE(SIDE_BLACK, TYPE_PAWN));
+	BOARD_SET(board, 48, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 49, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 50, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 51, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 52, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 53, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 54, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
+	BOARD_SET(board, 55, MAKE_PIECE(SIDE_WHITE, TYPE_PAWN));
 
-	BOARD_SET(board, 56, MAKE_PIECE(SIDE_BLACK, TYPE_ROOK));
-	BOARD_SET(board, 57, MAKE_PIECE(SIDE_BLACK, TYPE_KNIGHT));
-	BOARD_SET(board, 58, MAKE_PIECE(SIDE_BLACK, TYPE_BISHOP));
-	BOARD_SET(board, 59, MAKE_PIECE(SIDE_BLACK, TYPE_QUEEN));
-	BOARD_SET(board, 60, MAKE_PIECE(SIDE_BLACK, TYPE_KING));
-	BOARD_SET(board, 61, MAKE_PIECE(SIDE_BLACK, TYPE_BISHOP));
-	BOARD_SET(board, 62, MAKE_PIECE(SIDE_BLACK, TYPE_KNIGHT));
-	BOARD_SET(board, 63, MAKE_PIECE(SIDE_BLACK, TYPE_ROOK));
+	BOARD_SET(board, 56, MAKE_PIECE(SIDE_WHITE, TYPE_ROOK));
+	BOARD_SET(board, 57, MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT));
+	BOARD_SET(board, 58, MAKE_PIECE(SIDE_WHITE, TYPE_BISHOP));
+	BOARD_SET(board, 59, MAKE_PIECE(SIDE_WHITE, TYPE_QUEEN));
+	BOARD_SET(board, 60, MAKE_PIECE(SIDE_WHITE, TYPE_KING));
+	BOARD_SET(board, 61, MAKE_PIECE(SIDE_WHITE, TYPE_BISHOP));
+	BOARD_SET(board, 62, MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT));
+	BOARD_SET(board, 63, MAKE_PIECE(SIDE_WHITE, TYPE_ROOK));
 }
 
 /* Example: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1 */
 int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 {
-	size_t sq = 0;
+	int32_t sq = 0;
 	piece_t piece;
 	char up;
 	uint32_t halfTurns, fullTurns;
@@ -60,9 +60,6 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 			goto end;
 		switch (*fen) {
 		case '/':
-			sq /= BOARD_WIDTH;
-			sq *= BOARD_WIDTH;
-			sq += BOARD_WIDTH;
 			break;
 		case 'p':
 		case 'n':
@@ -70,9 +67,11 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 		case 'r':
 		case 'q':
 		case 'k':
+
 		case 'P':
 		case 'N':
 		case 'B':
+		case 'R':
 		case 'Q':
 		case 'K':
 			up = toupper(*fen);
@@ -103,6 +102,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 	if (*fen != 'b' && *fen != 'w')
 		goto end;
 	board->flags = *fen == 'w' ? SIDE_WHITE : SIDE_BLACK;
+	fen++;
 
 	if (*fen != ' ')
 		goto end;
@@ -155,7 +155,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 	if (!isdigit(*fen))
 		goto end;
 	halfTurns = *fen - '0';
-	while (isdigit(*fen)) {
+	for (fen++; isdigit(*fen); fen++) {
 		halfTurns *= 10;
 		halfTurns += *fen - '0';
 	}
@@ -168,7 +168,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 	if (!isdigit(*fen))
 		goto end;
 	fullTurns = *fen - '0';
-	while (isdigit(*fen)) {
+	for (fen++; isdigit(*fen); fen++) {
 		fullTurns *= 10;
 		fullTurns += *fen - '0';
 	}
@@ -180,7 +180,8 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 	return 0;
 
 end:
-	*pEnd = fen;
+	if (pEnd != NULL)
+		*pEnd = fen;
 	return 1;
 }
 
@@ -203,7 +204,7 @@ void board_neat_output(const Board *board, FILE *fp)
 		fprintf(fp, "+---+---+---+---+---+---+---+---+\n");
 		fprintf(fp, "|");
 		for (int8_t col = 0; col < BOARD_WIDTH; col++) {
-			const int32_t sq = (7 - row) * BOARD_WIDTH + col;
+			const int32_t sq = row * BOARD_WIDTH + col;
 			const piece_t piece = BOARD_GET(board, sq);
 
 			if (col > 0)
