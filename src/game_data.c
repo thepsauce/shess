@@ -379,7 +379,6 @@ int game_data_input(GameData *data, FILE *fp)
 			data->moves = newmoves;
 			data->moves[data->numMoves++] = parser.move;
 			parser.side ^= SIDE_MASK;
-			printf("added move: %x\n", parser.move);
 		}
 	}
 	return parser.numErrors;

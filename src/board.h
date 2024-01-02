@@ -15,20 +15,33 @@ typedef uint8_t piece_t;
 #define SIDE_WHITE	0x0
 #define SIDE_BLACK	0x1
 
-#define SIDE(piece) (((piece)&SIDE_MASK)>>SIDE_SHIFT)
+#define SIDE(piece) (((piece)>>SIDE_SHIFT)&SIDE_MASK)
 
 /* type of the piece */
 #define TYPE_SHIFT	1
 #define TYPE_MASK	BIT_MASK(3)
 
-#define TYPE_PAWN	0x0
-#define TYPE_KNIGHT	0x1
-#define TYPE_BISHOP	0x2
-#define TYPE_ROOK	0x3
-#define TYPE_QUEEN	0x4
-#define TYPE_KING	0x5
+#define TYPE_PAWN	0x1
+#define TYPE_KNIGHT	0x2
+#define TYPE_BISHOP	0x3
+#define TYPE_ROOK	0x4
+#define TYPE_QUEEN	0x5
+#define TYPE_KING	0x6
 
-#define TYPE(piece) (((piece)&TYPE_MASK)>>TYPE_SHIFT)
+#define TYPE(piece) (((piece)>>TYPE_SHIFT)&TYPE_MASK)
+
+#define MAKE_PIECE(side, type) (((side)<<SIDE_SHIFT)|((type)<<TYPE_SHIFT))
+
+#define SIDE_TO_CHAR(side) ("WB"[side])
+#define TYPE_TO_CHAR(type) ("?PNBRQK"[type])
+
+#define CHAR_TO_SIDE(side) ((side)=='W'?SIDE_WHITE:SIDE_BLACK)
+#define CHAR_TO_TYPE(type) ({ \
+	const char _t = (type); \
+	_t == 'P' ? TYPE_PAWN : _t == 'N' ? TYPE_KNIGHT : \
+	_t == 'B' ? TYPE_BISHOP : _t == 'R' ? TYPE_ROOK : \
+	_t == 'Q' ? TYPE_QUEEN : _t == 'K' ? TYPE_KING : '?'; \
+})
 
 /**
  * Move composition (b stands for bit/bits):
@@ -88,10 +101,10 @@ typedef uint32_t move_t;
 /* first bit indicates the playing side */
 
 /* castling */
-#define CASTLE_SHORT_BLACK	0x0002
-#define CASTLE_LONG_BLACK	0x0004
-#define CASTLE_SHORT_WHITE	0x0008
-#define CASTLE_LONG_WHITE	0x0010
+#define CASTLE_SHORT_WHITE	0x0002
+#define CASTLE_LONG_WHITE	0x0004
+#define CASTLE_SHORT_BLACK	0x0008
+#define CASTLE_LONG_BLACK	0x0010
 
 /* whether a side is in check */
 #define CHECK_WHITE		0x0020
@@ -101,27 +114,38 @@ typedef uint32_t move_t;
 #define EN_PASSANT_SHIFT	7
 #define EN_PASSANT_MASK		BIT_MASK(7)
 
-#define EN_PASSANT(flags) (((flags)>>EN_PASSANT_SHIFT)&ENPASSANT_MASK)
+#define EN_PASSANT(flags) (((flags)>>EN_PASSANT_SHIFT)&EN_PASSANT_MASK)
+
+#define HALF_TURN_SHIFT		14
+#define HALF_TURN_MASK		BIT_MASK(7)
+
+#define HALF_TURN(flags) (((flags)>>HALF_TURN_SHIFT)&HALF_TURN_MASK)
+
+#define FULL_TURN_SHIFT		21
+#define FULL_TURN_MASK		BIT_MASK(11)
+
+#define FULL_TURN(flags) (((flags)>>FULL_TURN_SHIFT)&FULL_TURN_MASK)
 
 typedef struct board {
 	uint32_t flags;
-	piece_t data[BOARD_WIDTH * BOARD_HEIGHT / 2];
+	piece_t data[BOARD_WIDTH * BOARD_HEIGHT];
 } Board;
 
 #define BOARD_GET(board, at) ({ \
-	Board *const _b = (board); \
+	const Board *const _b = (board); \
 	const uint32_t _at = (at); \
-	_b->data[_at / 2] >> (_at % 2); \
+	_b->data[_at]; \
 })
 
 #define BOARD_SET(board, at, piece) ({ \
 	Board *const _b = (board); \
 	const uint32_t _at = (at); \
-	const uint8_t _p = (pieces); \
-	_b->data[_at / 2] = _p << (_at % 2); \
+	const piece_t _p = (piece); \
+	_b->data[_at] = _p; \
 })
 
 void board_setup_starting(Board *board);
-void board_setup_fen(Board *board);
+int board_setup_fen(Board *board, const char *fen, const char **pEnd);
 void board_play_move(Board *board, const move_t *move);
 void board_play_moves(Board *board, const move_t *moves, size_t numMoves);
+void board_neat_output(const Board *board, FILE *fp);
