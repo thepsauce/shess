@@ -18,12 +18,11 @@ typedef struct game_context {
 typedef struct game_data {
 	GameContext *context;
 	size_t numContext;
-	move_t *moves;
-	size_t numMoves;
+	MoveList moves;
 } GameData;
 
-int game_data_input(GameData *data, FILE *fp);
-int game_data_output(GameData *data, FILE *fp);
+int gamedata_input(GameData *data, FILE *fp);
+int gamedata_output(GameData *data, FILE *fp);
 
 typedef struct game {
 	GameData data;

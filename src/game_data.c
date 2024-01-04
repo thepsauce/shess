@@ -1,22 +1,5 @@
 #include "shess.h"
 
-char piece_letters[] = {
-	[TYPE_PAWN] = 'P',
-	[TYPE_KNIGHT] = 'N',
-	[TYPE_BISHOP] = 'B',
-	[TYPE_ROOK] = 'R',
-	[TYPE_QUEEN] = 'Q',
-	[TYPE_KING] = 'K',
-};
-
-piece_t type_from_letter(char letter)
-{
-	for (size_t i = 0; i < ARRLEN(piece_letters); i++)
-		if (piece_letters[i] == letter)
-			return (piece_t) i;
-	return 0;
-}
-
 typedef struct parser {
 	FILE *fp;
 	int prevc;
@@ -189,16 +172,23 @@ static int parser_read_move(Parser *parser)
 			move |= MOVE_CASTLE_SHORT;
 		}
 	} else {
-		int8_t col, row;
+		move_t col, row;
 
 		switch (parser->c) {
 		case 'P':
+		case 'p':
 		case 'N':
+		case 'n':
 		case 'B':
+		/* no `case 'b':` for the bishop */
 		case 'R':
+		case 'r':
 		case 'Q':
+		case 'q':
 		case 'K':
-			move |= type_from_letter(parser->c) << MOVE_TYPE_SHIFT;
+		case 'k':
+			move |= CHAR_TO_TYPE(toupper(parser->c)) <<
+				MOVE_TYPE_SHIFT;
 			parser_getc(parser);
 			break;
 		}
@@ -220,7 +210,7 @@ static int parser_read_move(Parser *parser)
 			parser_getc(parser);
 
 			if (isdigit(parser->c)) {
-				if (parser->c < '1' || parser->c > '9')
+				if (parser->c < '1' || parser->c > '8')
 					return -1;
 				move ^= MOVE_CONFUSED_ROW;
 				move |= ((parser->c - '1') * BOARD_WIDTH) <<
@@ -265,7 +255,7 @@ static int parser_read_move(Parser *parser)
 			case 'R':
 			case 'Q':
 			case 'K':
-				move |= type_from_letter(parser->c) <<
+				move |= CHAR_TO_TYPE(parser->c) <<
 					MOVE_PROMOTION_SHIFT;
 				parser_getc(parser);
 				break;
@@ -287,11 +277,10 @@ static int parser_read_move(Parser *parser)
 	return 0;
 }
 
-int game_data_input(GameData *data, FILE *fp)
+int gamedata_input(GameData *data, FILE *fp)
 {
 	Parser parser;
 
-	move_t *newmoves;
 	GameContext *newctx;
 	size_t lastmove = 0;
 
@@ -370,15 +359,10 @@ int game_data_input(GameData *data, FILE *fp)
 
 		if (isalpha(parser.c)) {
 			if (parser_read_move(&parser) < 0)
-				return -1;
-
-			newmoves = realloc(data->moves, sizeof(*data->moves) *
-					(data->numMoves + 1));
-			if (newmoves == NULL)
 				goto err;
-			data->moves = newmoves;
-			data->moves[data->numMoves++] = parser.move;
-			parser.side ^= SIDE_MASK;
+			if (movelist_add(&data->moves, parser.move) < 0)
+				goto err;
+			parser.side = SIDE_ENEMY(parser.side);
 		}
 	}
 	return parser.numErrors;
@@ -390,54 +374,7 @@ err:
 	return -1 - parser.numErrors;
 }
 
-static void move_output(move_t move, FILE *fp)
-{
-	move_t end;
-
-	if (move & MOVE_CASTLE_SHORT) {
-		fprintf(fp, "O-O");
-	} else if (move & MOVE_CASTLE_LONG) {
-		fprintf(fp, "O-O-O");
-	} else if ((end = MOVE_END_CONDITION(move)) > 0) {
-		switch (end) {
-		case MOVE_RESIGNATION:
-			printf("(resigns)");
-			break;
-		case MOVE_STALEMATE:
-			printf("(stalemate)");
-			break;
-		case MOVE_DRAW:
-			printf("(draw)");
-			break;
-		}
-	} else {
-		const piece_t type = MOVE_TYPE(move);
-		const piece_t prom = MOVE_PROMOTION(move);
-		const int8_t from = MOVE_FROM(move);
-		const int8_t to = MOVE_TO(move);
-		if (type != TYPE_PAWN)
-			fputc(piece_letters[type], fp);
-		if (move & MOVE_IS_CONFUSED) {
-			if (!(move & MOVE_CONFUSED_COL))
-				fputc(from % BOARD_WIDTH + 'a', fp);
-			if (!(move & MOVE_CONFUSED_ROW))
-				fputc(from / BOARD_WIDTH + '1', fp);
-		}
-		if (move & MOVE_TAKES)
-			fputc('x', fp);
-		const int row = to / BOARD_WIDTH;
-		const int col = to % BOARD_WIDTH;
-		fprintf(fp, "%c%c", 'a' + col, '1' + row);
-		if (prom != 0)
-			fprintf(fp, "=%c", piece_letters[prom]);
-	}
-	if (move & MOVE_CHECK)
-		fputc('+', fp);
-	if (move & MOVE_CHECKMATE)
-		fputc('#', fp);
-}
-
-int game_data_output(GameData *data, FILE *fp)
+int gamedata_output(GameData *data, FILE *fp)
 {
 	size_t parity = 0;
 
@@ -445,8 +382,8 @@ int game_data_output(GameData *data, FILE *fp)
 		GameContext *const ctx = &data->context[i];
 		fprintf(fp, "[%s \"%s\"]\n", ctx->id, ctx->value);
 	}
-	for (size_t i = 0; i < data->numMoves; i++) {
-		const move_t move = data->moves[i];
+	for (size_t i = 0; i < data->moves.numMoves; i++) {
+		const move_t move = data->moves.moves[i];
 		if (i % 2 == parity) {
 			if (i > 0)
 				fputc(' ', fp);
@@ -456,7 +393,7 @@ int game_data_output(GameData *data, FILE *fp)
 				parity ^= 1;
 			}
 		}
-		printf(" ");
+		fprintf(fp, " ");
 		move_output(move, fp);
 	}
 	return 0;
