@@ -57,11 +57,12 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 
 	row = BOARD_HEIGHT - 1;
 	col = 0;
-	for (; *fen != ' ' && *fen != '\0'; fen++) {
+	while (*fen != ' ' && *fen != '\0') {
 		switch (*fen) {
 		case '/':
 			row--;
 			col = 0;
+			fen++;
 			break;
 		case 'p':
 		case 'n':
@@ -82,6 +83,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 		/* fall through */
 		case '1':
 			col++;
+			fen++;
 			break;
 		case '2':
 		case '3':
@@ -91,11 +93,12 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 		case '7':
 		case '8':
 			col += *fen - '0';
+			fen++;
 			break;
 		default:
 			goto end;
 		}
-		if (row == 0 && col == BOARD_WIDTH - 1)
+		if (row == 0 && col == BOARD_WIDTH)
 			break;
 	}
 
@@ -197,24 +200,25 @@ int board_play_move(Board *board, move_t move)
 	piece_t promot;
 	piece_t piece;
 
-	if (move & MOVE_IS_CONFUSED)
+	if (move & MOVE_CONFUSED)
 		/* only validated moves are allowed in here */
 		return -1;
 
 	if (move & MOVE_CASTLE) {
-		const move_t row = TURN(board) == SIDE_WHITE ? 0 :
-			BOARD_HEIGHT - 1;
-		piece = TURN(board) | TYPE_KING;
-		const piece_t rook = TURN(board) | TYPE_ROOK;
-		if (move & (CASTLE_SHORT_WHITE | CASTLE_SHORT_BLACK)) {
-			BOARD_SET(board, row * BOARD_WIDTH + 6, piece);
-			BOARD_SET(board, row * BOARD_WIDTH + 7, 0);
-			BOARD_SET(board, row * BOARD_WIDTH + 5, rook);
+		const move_t off = TURN(board) == SIDE_WHITE ? 0 :
+			(BOARD_HEIGHT - 1) * BOARD_WIDTH;
+		piece = MAKE_PIECE(TURN(board), TYPE_KING);
+		const piece_t rook = MAKE_PIECE(TURN(board), TYPE_ROOK);
+		if (move & MOVE_CASTLE_SHORT) {
+			BOARD_SET(board, off + 6, piece);
+			BOARD_SET(board, off + 7, 0);
+			BOARD_SET(board, off + 5, rook);
 		} else {
-			BOARD_SET(board, row * BOARD_WIDTH + 2, piece);
-			BOARD_SET(board, row * BOARD_WIDTH + 3, 0);
-			BOARD_SET(board, row * BOARD_WIDTH + 0, rook);
+			BOARD_SET(board, off + 2, piece);
+			BOARD_SET(board, off + 3, 0);
+			BOARD_SET(board, off + 0, rook);
 		}
+		BOARD_SET(board, off + 4, 0);
 	} else {
 		from = MOVE_FROM(move);
 		to = MOVE_TO(move);
@@ -241,7 +245,6 @@ int board_play_move(Board *board, move_t move)
 
 	/* remove en passant */
 	board->flags &= ~(EN_PASSANT_MASK << EN_PASSANT_SHIFT);
-
 
 	switch (TYPE(piece)) {
 	case TYPE_PAWN: {
@@ -275,6 +278,12 @@ int board_play_move(Board *board, move_t move)
 			<< TURN(board));
 		break;
 	}
+	if (TYPE(piece) != TYPE_PAWN && !(move & MOVE_TAKES))
+		SET_HALF_TURN(board, HALF_TURN(board) + 1);
+	else
+		SET_HALF_TURN(board, 0);
+	if (TURN(board) == SIDE_BLACK)
+		SET_FULL_TURN(board, FULL_TURN(board) + 1);
 	SWITCH_TURN(board);
 	return 0;
 }
@@ -289,6 +298,13 @@ int board_play_moves(Board *board, const MoveList *moves)
 			return -1;
 		board_play_move(board, move);
 	}
+	return 0;
+}
+
+int board_unplay_move(Board *board, move_t move)
+{
+	(void) board;
+	(void) move; /* TODO: */
 	return 0;
 }
 

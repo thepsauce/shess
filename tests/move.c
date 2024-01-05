@@ -12,7 +12,9 @@ int main(void)
 
 	memset(&game, 0, sizeof(game));
 
-	board_setup_fen(&game.board, "3k4/8/8/8/8/8/1p6/2Q1K3 b - - 0 1", NULL);
+	//board_setup_fen(&game.board, "3k4/8/8/8/8/8/1p6/2Q1K3 b - - 0 1", NULL);
+	//board_setup_starting(&game.board);
+	board_setup_fen(&game.board, "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4", NULL);
 	board_neat_output(&game.board, stdout);
 	while ((numLine = getline(&line, &szLine, stdin)) > 0) {
 		line[numLine - 1] = '\0';

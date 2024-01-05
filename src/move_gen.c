@@ -6,6 +6,134 @@ struct cache_board {
 } *cached_boards;
 size_t num_cached_boards;
 
+struct offset {
+	move_offset_t rows;
+	move_offset_t cols;
+};
+
+static const struct offset knight_offsets[] = {
+	{ -2, -1 },
+	{ -2,  1 },
+	{  2, -1 },
+	{  2,  1 },
+	{ -1, -2 },
+	{ -1,  2 },
+	{  1, -2 },
+	{  1,  2 }
+};
+
+static const struct offset bishop_offsets[] = {
+	{ -1, -1 },
+	{ -1,  1 },
+	{  1, -1 },
+	{  1,  1 },
+};
+
+static const struct offset rook_offsets[] = {
+	{  0, -1 },
+	{  0,  1 },
+	{ -1,  0 },
+	{  1,  0 }
+};
+
+static const struct offset king_offsets[] = {
+	{ -1, -1 },
+	{ -1,  1 },
+	{  1, -1 },
+	{  1,  1 },
+	{  0, -1 },
+	{  0,  1 },
+	{ -1,  0 },
+	{  1,  0 }
+};
+
+const char *piece_str(piece_t piece)
+{
+	static char str[2];
+
+	str[0] = TYPE_TO_CHAR(TYPE(piece));
+	if (SIDE(piece) == SIDE_BLACK)
+		str[0] = tolower(str[0]);
+	return str;
+}
+
+const char *sq_str(move_t sq)
+{
+	static char str[3];
+
+	str[0] = sq % BOARD_WIDTH + 'a';
+	str[1] = sq / BOARD_WIDTH + '1';
+	return str;
+}
+
+bool board_is_attacked(Board *board, move_t sq, piece_t side)
+{
+	move_t to;
+	/* 1. is a rook/queen above/below/left/right of this square
+	 * 2. is a knight targetting this square
+	 * 3. is a pawn attacking this square
+	 * 4. is the king touching this square
+	 */
+	/* bishop/queen not diagonal */
+	for (size_t i = 0; i < ARRLEN(rook_offsets); i++) {
+		const struct offset o = rook_offsets[i];
+		to = sq;
+		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
+			const piece_t p = BOARD_GET(board, to);
+			if (p == 0)
+				continue;
+			if (SIDE(p) != side)
+				break;
+			if (TYPE(p) == TYPE_ROOK || TYPE(p) == TYPE_QUEEN)
+				return true;
+		}
+	}
+	/* bishop/queen diagonal */
+	for (size_t i = 0; i < ARRLEN(bishop_offsets); i++) {
+		const struct offset o = rook_offsets[i];
+		to = sq;
+		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
+			const piece_t p = BOARD_GET(board, to);
+			if (p == 0)
+				continue;
+			if (SIDE(p) != side)
+				break;
+			if (TYPE(p) == TYPE_BISHOP || TYPE(p) == TYPE_QUEEN)
+				return true;
+		}
+	}
+	/* knight */
+	for (size_t i = 0; i < ARRLEN(knight_offsets); i++) {
+		const struct offset o = knight_offsets[i];
+		const move_t to = OFFSET(sq, o.rows, o.cols);
+		if (to == (move_t) -1)
+			continue;
+		const piece_t p = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_KNIGHT) == p)
+			return true;
+	}
+	/* pawn */
+	for (move_offset_t i = -1; i <= 1; i += 2) {
+		to = OFFSET(sq, i, -DIRECTION(side));
+		if (to == (move_t) -1)
+			continue;
+		const piece_t p = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_PAWN) == p)
+			return true;
+	}
+	/* king */
+	for (size_t i = 0; i < ARRLEN(king_offsets); i++) {
+		const struct offset o = king_offsets[i];
+		to = OFFSET(sq, o.rows, o.cols);
+		if (to == (move_t) -1)
+			continue;
+		const piece_t p = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_KING) == p)
+			return true;
+	}
+	return false;
+}
+
 static inline int pawn_add_move(MoveList *list, move_t move)
 {
 	const move_t to = MOVE_TO(move);
@@ -82,44 +210,79 @@ static int pawn_generate_moves(Board *board, move_t from, MoveList *list)
 	return 0;
 }
 
+static inline int generate_moves(Board *board, move_t from, MoveList *list,
+		const struct offset *offsets, size_t numOffsets, bool single)
+{
+	move_t to, move;
+
+	const piece_t piece = BOARD_GET(board, from);
+	for (size_t i = 0; i < numOffsets; i++) {
+		const struct offset o = offsets[i];
+		to = from;
+		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
+			const piece_t p = BOARD_GET(board, to);
+			move = MAKE_MOVE(from, to) | piece;
+			if (p != 0) {
+				if (SIDE(piece) == SIDE(p))
+					break;
+				move |= MOVE_TAKES;
+			}
+			if (movelist_add(list, move) < 0)
+				return -1;
+			if (p != 0 || single)
+				break;
+		}
+	}
+	return 0;
+}
+
 static int knight_generate_moves(Board *board, move_t from, MoveList *list)
 {
-	(void) board;
-	(void) from;
-	(void) list; /* TODO: */
-	return 0;
+	return generate_moves(board, from, list,
+			knight_offsets, ARRLEN(knight_offsets), true);
 }
 
 static int bishop_generate_moves(Board *board, move_t from, MoveList *list)
 {
-	(void) board;
-	(void) from;
-	(void) list; /* TODO: */
-	return 0;
+	return generate_moves(board, from, list,
+			bishop_offsets, ARRLEN(bishop_offsets), false);
 }
 
 static int rook_generate_moves(Board *board, move_t from, MoveList *list)
 {
-	(void) board;
-	(void) from;
-	(void) list; /* TODO: */
-	return 0;
+	return generate_moves(board, from, list,
+			rook_offsets, ARRLEN(rook_offsets), false);
 }
 
 static int queen_generate_moves(Board *board, move_t from, MoveList *list)
 {
-	(void) board;
-	(void) from;
-	(void) list; /* TODO: */
-	return 0;
+	return generate_moves(board, from, list,
+			king_offsets, ARRLEN(king_offsets), false);
 }
 
 static int king_generate_moves(Board *board, move_t from, MoveList *list)
 {
-	(void) board;
-	(void) from;
-	(void) list; /* TODO: */
-	return 0;
+	const piece_t king = BOARD_GET(board, from);
+	if (!(board->flags & CHECK)) {
+		if ((board->flags & (CASTLE_SHORT_WHITE << SIDE(king))) &&
+				BOARD_GET(board, from + 1) == 0 &&
+				BOARD_GET(board, from + 2) == 0) {
+			if (!board_is_attacked(board, from + 1, ENEMY(king)))
+				if (movelist_add(list, MOVE_CASTLE_SHORT) < 0)
+					return -1;
+		}
+
+		if ((board->flags & (CASTLE_LONG_WHITE << SIDE(king))) &&
+				BOARD_GET(board, from - 1) == 0 &&
+				BOARD_GET(board, from - 2) == 0 &&
+				BOARD_GET(board, from - 3) == 0) {
+			if (!board_is_attacked(board, from - 1, ENEMY(king)))
+				if (movelist_add(list, MOVE_CASTLE_LONG) < 0)
+					return -1;
+		}
+	}
+	return generate_moves(board, from, list,
+			king_offsets, ARRLEN(king_offsets), true);
 }
 
 MoveList *board_generate_moves(Board *board)

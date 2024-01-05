@@ -68,24 +68,25 @@ typedef uint8_t piece_t;
 #define CASTLE_LONG_BLACK	0x0010
 
 /* whether a side is in check */
-#define CHECK_WHITE		0x0020
-#define CHECK_BLACK		0x0040
+#define CHECK			0x0020
 
 /* the current en passant square (0 indicates that there is none) */
-#define EN_PASSANT_SHIFT	7
+#define EN_PASSANT_SHIFT	6
 #define EN_PASSANT_MASK		BIT_MASK(7)
 
 #define EN_PASSANT(board) (((board)->flags>>EN_PASSANT_SHIFT)&EN_PASSANT_MASK)
 
-#define HALF_TURN_SHIFT		14
+#define HALF_TURN_SHIFT		13
 #define HALF_TURN_MASK		BIT_MASK(7)
 
 #define HALF_TURN(board) (((board)->flags>>HALF_TURN_SHIFT)&HALF_TURN_MASK)
+#define SET_HALF_TURN(board, ht) ((board)->flags = ((board)->flags & ~(HALF_TURN_MASK << HALF_TURN_SHIFT)) | ((ht) << FULL_TURN_SHIFT))
 
-#define FULL_TURN_SHIFT		21
-#define FULL_TURN_MASK		BIT_MASK(11)
+#define FULL_TURN_SHIFT		20
+#define FULL_TURN_MASK		BIT_MASK(12)
 
 #define FULL_TURN(board) (((board)->flags>>FULL_TURN_SHIFT)&FULL_TURN_MASK)
+#define SET_FULL_TURN(board, ft) ((board)->flags = ((board)->flags & ~(FULL_TURN_MASK << FULL_TURN_SHIFT)) | ((ft) << FULL_TURN_SHIFT))
 
 typedef struct board {
 	uint32_t flags;
@@ -118,6 +119,7 @@ const char *board_to_fen(const Board *board);
  * [confused row][confused column][end condition]
  */
 typedef uint32_t move_t;
+typedef int32_t move_offset_t;
 
 #define MOVE_SIDE_SHIFT 0
 
@@ -148,21 +150,32 @@ typedef uint32_t move_t;
 #define MOVE_CONFUSED_ROW	0x01000000
 #define MOVE_CONFUSED_COL	0x02000000
 #define MOVE_CONFUSED (MOVE_CONFUSED_ROW|MOVE_CONFUSED_COL)
-#define MOVE_IS_CONFUSED	0x04000000
 
-#define MOVE_CHECK		0x08000000
-#define MOVE_CHECKMATE		0x10000000
+#define MOVE_CHECK		0x04000000
+#define MOVE_CHECKMATE		0x08000000
 
 #define MOVE_RESIGNATION	0x1
 #define MOVE_STALEMATE		0x2
 #define MOVE_DRAW		0x3
 
-#define MOVE_END_CONDITION_SHIFT 29
+#define MOVE_END_CONDITION_SHIFT 28
 #define MOVE_END_CONDITION_MASK BIT_MASK(2)
 
 #define MOVE_END_CONDITION(move) (((move)>>MOVE_END_CONDITION_SHIFT)&MOVE_END_CONDITION_MASK)
 
 #define MAKE_MOVE(from, to) (((from)<<MOVE_FROM_SHIFT)|((to)<<MOVE_TO_SHIFT))
+
+#define OFFSET(to, rows, cols) ({ \
+	move_t _result = (move_t) -1; \
+	const move_t _to = (to); \
+	const move_offset_t _dr = (rows); \
+	const move_offset_t _dc = (cols); \
+	const move_offset_t _r = _to / BOARD_WIDTH + _dr; \
+	const move_offset_t _c = _to % BOARD_WIDTH + _dc; \
+	if (_r >= 0 && _c >= 0 && _r < BOARD_HEIGHT && _c < BOARD_WIDTH) \
+		_result = _r * BOARD_WIDTH + _c; \
+	_result; \
+})
 
 int move_validate(move_t *move, Board *board);
 void move_output(move_t move, FILE *fp);
@@ -175,7 +188,9 @@ typedef struct move_list {
 } MoveList;
 
 int movelist_add(MoveList *list, move_t move);
+bool movelist_targets(MoveList *list, move_t to);
 
 int board_play_move(Board *board, move_t move);
 int board_play_moves(Board *board, const MoveList *moves);
+int board_unplay_move(Board *board, move_t move);
 MoveList *board_generate_moves(Board *board);

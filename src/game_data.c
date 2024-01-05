@@ -193,7 +193,7 @@ static int parser_read_move(Parser *parser)
 			break;
 		}
 
-		move |= MOVE_CONFUSED | MOVE_IS_CONFUSED;
+		move |= MOVE_CONFUSED;
 
 		if (isdigit(parser->c)) {
 			if (parser->c == '0' || parser->c == '9')

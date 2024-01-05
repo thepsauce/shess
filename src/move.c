@@ -13,6 +13,15 @@ int movelist_add(MoveList *list, move_t move)
 	return 0;
 }
 
+bool movelist_targets(MoveList *list, move_t to)
+{
+	to = MOVE_TO(to);
+	for (size_t i = 0; i < list->numMoves; i++)
+		if (MOVE_TO(list->moves[i]) == to)
+			return true;
+	return false;
+}
+
 int move_validate(move_t *move, Board *board)
 {
 	MoveList *moves;
@@ -80,7 +89,7 @@ void move_output(move_t move, FILE *fp)
 		const move_t to = MOVE_TO(move);
 		if (type != TYPE_PAWN)
 			fputc(TYPE_TO_CHAR(type), fp);
-		if (move & MOVE_IS_CONFUSED) {
+		if (move & MOVE_CONFUSED) {
 			if (!(move & MOVE_CONFUSED_COL))
 				fputc(from % BOARD_WIDTH + 'a', fp);
 			if (!(move & MOVE_CONFUSED_ROW))
@@ -138,7 +147,7 @@ int move_parse(move_t *pMove, move_t side, const char *str)
 			break;
 		}
 
-		move |= MOVE_CONFUSED | MOVE_IS_CONFUSED;
+		move |= MOVE_CONFUSED;
 
 		if (isdigit(str[0])) {
 			if (str[0] == '0' || str[0] == '9')
