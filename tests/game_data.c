@@ -5,7 +5,10 @@
 int main(void)
 {
 	FILE *fp;
-	GameData gd;
+	Game game;
+
+	if (game_init(&game) < 0)
+		return -1;
 
 	const move_t moves[] = {
 		MAKE_PIECE(SIDE_WHITE, TYPE_QUEEN) |
@@ -27,10 +30,11 @@ int main(void)
 	}
 
 	fp = fopen("test.txt", "r");
-	memset(&gd, 0, sizeof(gd));
-	gamedata_input(&gd, fp);
+	gamedata_input(&game.data, fp);
 	fclose(fp);
 	printf("Game data:\n");
-	gamedata_output(&gd, stdout);
+	gamedata_output(&game.data, stdout);
+
+	game_uninit(&game);
 	return 0;
 }

@@ -5,8 +5,7 @@ void board_setup_starting(Board *board)
 	memset(board, 0, sizeof(*board));
 
 	board->flags = SIDE_WHITE;
-	board->flags |= CASTLE_SHORT_WHITE | CASTLE_LONG_WHITE |
-		CASTLE_SHORT_BLACK | CASTLE_LONG_BLACK;
+	board->flags |= CASTLE_SHORT | CASTLE_LONG;
 
 	BOARD_SET(board, 0, MAKE_PIECE(SIDE_WHITE, TYPE_ROOK));
 	BOARD_SET(board, 1, MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT));
@@ -194,16 +193,14 @@ end:
 	return 1;
 }
 
-int board_play_move(Board *board, move_t move)
+void board_play_move(Board *board, move_t move, UndoData *ud)
 {
 	move_t from, to;
 	piece_t promot;
 	piece_t piece;
 
-	if (move & MOVE_CONFUSED)
-		/* only validated moves are allowed in here */
-		return -1;
-
+	ud->move = move;
+	ud->flags = board->flags;
 	if (move & MOVE_CASTLE) {
 		const move_t off = TURN(board) == SIDE_WHITE ? 0 :
 			(BOARD_HEIGHT - 1) * BOARD_WIDTH;
@@ -227,6 +224,7 @@ int board_play_move(Board *board, move_t move)
 		piece = BOARD_GET(board, from);
 		if (promot != 0)
 			piece = TYPE_SET(piece, promot);
+		ud->capture = BOARD_GET(board, to);
 		BOARD_SET(board, to, piece);
 		BOARD_SET(board, from, 0);
 
@@ -285,31 +283,75 @@ int board_play_move(Board *board, move_t move)
 	if (TURN(board) == SIDE_BLACK)
 		SET_FULL_TURN(board, FULL_TURN(board) + 1);
 	SWITCH_TURN(board);
-	return 0;
 }
 
-int board_play_moves(Board *board, const MoveList *moves)
+void board_unplay_move(Board *board, const UndoData *ud)
 {
-	move_t move;
+	move_t from, to;
+	piece_t promot;
+	piece_t piece;
 
-	for (size_t i = 0; i < moves->numMoves; i++) {
-		move = moves->moves[i];
-		if (move_validate(&move, board) < 0)
-			return -1;
-		board_play_move(board, move);
+	const move_t move = ud->move;
+	board->flags = ud->flags;
+	if (move & MOVE_CASTLE) {
+		const move_t off = TURN(board) == SIDE_WHITE ? 0 :
+			(BOARD_HEIGHT - 1) * BOARD_WIDTH;
+		piece = MAKE_PIECE(TURN(board), TYPE_KING);
+		const piece_t rook = MAKE_PIECE(TURN(board), TYPE_ROOK);
+		if (move & MOVE_CASTLE_SHORT) {
+			BOARD_SET(board, off + 5, 0);
+			BOARD_SET(board, off + 6, 0);
+			BOARD_SET(board, off + 7, rook);
+		} else {
+			BOARD_SET(board, off + 3, 0);
+			BOARD_SET(board, off + 2, 0);
+			BOARD_SET(board, off + 0, rook);
+		}
+		BOARD_SET(board, off + 4, piece);
+	} else {
+		from = MOVE_FROM(move);
+		to = MOVE_TO(move);
+		promot = MOVE_PROMOTION(move);
+
+		piece = BOARD_GET(board, to);
+		if (promot != 0)
+			piece = TYPE_SET(piece, TYPE_PAWN);
+		BOARD_SET(board, from, piece);
+		BOARD_SET(board, to, ud->capture);
+
+		const move_t enp = EN_PASSANT(board);
+		if (TYPE(piece) == TYPE_PAWN && enp != 0 && to == enp) {
+			move_t thePawn; /* the pawn that moved two squares */
+
+			const int dir = DIRECTION(TURN(board));
+			thePawn = to / BOARD_WIDTH;
+			thePawn -= dir;
+			thePawn *= BOARD_WIDTH;
+			thePawn += to % BOARD_WIDTH;
+			BOARD_SET(board, thePawn, MAKE_PIECE(ENEMY(piece),
+						TYPE_PAWN));
+		}
 	}
-	return 0;
-}
-
-int board_unplay_move(Board *board, move_t move)
-{
-	(void) board;
-	(void) move; /* TODO: */
-	return 0;
 }
 
 void board_neat_output(const Board *board, FILE *fp)
 {
+	static const char *uniPieces[] = {
+		[MAKE_PIECE(SIDE_WHITE, TYPE_PAWN)] = "♙",
+		[MAKE_PIECE(SIDE_WHITE, TYPE_KNIGHT)] = "♘",
+		[MAKE_PIECE(SIDE_WHITE, TYPE_BISHOP)] = "♗",
+		[MAKE_PIECE(SIDE_WHITE, TYPE_ROOK)] = "♖",
+		[MAKE_PIECE(SIDE_WHITE, TYPE_QUEEN)] = "♕",
+		[MAKE_PIECE(SIDE_WHITE, TYPE_KING)] = "♔",
+
+		[MAKE_PIECE(SIDE_BLACK, TYPE_PAWN)] = "♟︎",
+		[MAKE_PIECE(SIDE_BLACK, TYPE_KNIGHT)] = "♞",
+		[MAKE_PIECE(SIDE_BLACK, TYPE_BISHOP)] = "♝",
+		[MAKE_PIECE(SIDE_BLACK, TYPE_ROOK)] = "♜",
+		[MAKE_PIECE(SIDE_BLACK, TYPE_QUEEN)] = "♛",
+		[MAKE_PIECE(SIDE_BLACK, TYPE_KING)] = "♚",
+	};
+
 	for (move_t row = 0; row < BOARD_HEIGHT; row++) {
 		fprintf(fp, "+---+---+---+---+---+---+---+---+\n");
 		fprintf(fp, "|");
@@ -321,16 +363,10 @@ void board_neat_output(const Board *board, FILE *fp)
 			if (col > 0)
 				fprintf(fp, "|");
 
-			if (TYPE(piece) == 0) {
+			if (TYPE(piece) == 0)
 				fprintf(fp, "   ");
-			} else {
-				char ch;
-
-				ch = TYPE_TO_CHAR(TYPE(piece));
-				if (SIDE(piece) == SIDE_BLACK)
-					ch = tolower(ch);
-				fprintf(fp, " %c ", ch);
-			}
+			else
+				fprintf(fp, " %s ", uniPieces[piece]);
 		}
 		fprintf(fp, "| %d\n", 8 - row);
 	}

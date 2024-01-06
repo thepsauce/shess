@@ -360,7 +360,7 @@ int gamedata_input(GameData *data, FILE *fp)
 		if (isalpha(parser.c)) {
 			if (parser_read_move(&parser) < 0)
 				goto err;
-			if (movelist_add(&data->moves, parser.move) < 0)
+			if (history_add(&data->history, parser.move, 0) < 0)
 				goto err;
 			parser.side = SIDE_ENEMY(parser.side);
 		}
@@ -376,25 +376,29 @@ err:
 
 int gamedata_output(GameData *data, FILE *fp)
 {
-	size_t parity = 0;
+	int parity = 0;
+	Node *node;
+	size_t move = 0;
 
 	for (size_t i = 0; i < data->numContext; i++) {
 		GameContext *const ctx = &data->context[i];
 		fprintf(fp, "[%s \"%s\"]\n", ctx->id, ctx->value);
 	}
-	for (size_t i = 0; i < data->moves.numMoves; i++) {
-		const move_t move = data->moves.moves[i];
-		if (i % 2 == parity) {
-			if (i > 0)
+	for (node = data->history.first; node != NULL; move++) {
+		if (move % 2 == 1) {
+			if (move > 0)
 				fputc(' ', fp);
-			fprintf(fp, "%zu.", i / 2 + 1 + parity);
-			if (MOVE_SIDE(move) == SIDE_BLACK) {
+			fprintf(fp, "%zu.", move / 2 + 1 + parity);
+			if (MOVE_SIDE(node->move) == SIDE_BLACK) {
 				fprintf(fp, "...");
 				parity ^= 1;
 			}
 		}
 		fprintf(fp, " ");
-		move_output(move, fp);
+		move_output(node->move, fp);
+		if (node->numChildren == 0)
+			break;
+		node = node->children[0];
 	}
 	return 0;
 }

@@ -64,8 +64,10 @@ typedef uint8_t piece_t;
  */
 #define CASTLE_SHORT_WHITE	0x0002
 #define CASTLE_SHORT_BLACK	0x0004
+#define CASTLE_SHORT		(CASTLE_SHORT_WHITE|CASTLE_SHORT_BLACK)
 #define CASTLE_LONG_WHITE	0x0008
 #define CASTLE_LONG_BLACK	0x0010
+#define CASTLE_LONG		(CASTLE_LONG_WHITE|CASTLE_LONG_BLACK)
 
 /* whether a side is in check */
 #define CHECK			0x0020
@@ -190,7 +192,14 @@ typedef struct move_list {
 int movelist_add(MoveList *list, move_t move);
 bool movelist_targets(MoveList *list, move_t to);
 
-int board_play_move(Board *board, move_t move);
-int board_play_moves(Board *board, const MoveList *moves);
-int board_unplay_move(Board *board, move_t move);
+typedef struct undo_data {
+	move_t move;
+	uint32_t flags;
+	piece_t capture;
+} UndoData;
+
+void board_play_move(Board *board, move_t move, UndoData *ud);
+void board_unplay_move(Board *board, const UndoData *ud);
+/* side is the attacking side */
+bool board_is_attacked(Board *board, move_t sq, piece_t side);
 MoveList *board_generate_moves(Board *board);

@@ -47,25 +47,6 @@ static const struct offset king_offsets[] = {
 	{  1,  0 }
 };
 
-const char *piece_str(piece_t piece)
-{
-	static char str[2];
-
-	str[0] = TYPE_TO_CHAR(TYPE(piece));
-	if (SIDE(piece) == SIDE_BLACK)
-		str[0] = tolower(str[0]);
-	return str;
-}
-
-const char *sq_str(move_t sq)
-{
-	static char str[3];
-
-	str[0] = sq % BOARD_WIDTH + 'a';
-	str[1] = sq / BOARD_WIDTH + '1';
-	return str;
-}
-
 bool board_is_attacked(Board *board, move_t sq, piece_t side)
 {
 	move_t to;
@@ -74,7 +55,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 	 * 3. is a pawn attacking this square
 	 * 4. is the king touching this square
 	 */
-	/* bishop/queen not diagonal */
+	/* rook/queen not diagonal */
 	for (size_t i = 0; i < ARRLEN(rook_offsets); i++) {
 		const struct offset o = rook_offsets[i];
 		to = sq;
@@ -88,6 +69,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 				return true;
 		}
 	}
+
 	/* bishop/queen diagonal */
 	for (size_t i = 0; i < ARRLEN(bishop_offsets); i++) {
 		const struct offset o = rook_offsets[i];
@@ -102,6 +84,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 				return true;
 		}
 	}
+
 	/* knight */
 	for (size_t i = 0; i < ARRLEN(knight_offsets); i++) {
 		const struct offset o = knight_offsets[i];
@@ -112,6 +95,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 		if (MAKE_PIECE(side, TYPE_KNIGHT) == p)
 			return true;
 	}
+
 	/* pawn */
 	for (move_offset_t i = -1; i <= 1; i += 2) {
 		to = OFFSET(sq, i, -DIRECTION(side));
@@ -121,6 +105,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 		if (MAKE_PIECE(side, TYPE_PAWN) == p)
 			return true;
 	}
+
 	/* king */
 	for (size_t i = 0; i < ARRLEN(king_offsets); i++) {
 		const struct offset o = king_offsets[i];
@@ -296,6 +281,10 @@ MoveList *board_generate_moves(Board *board)
 		[TYPE_KING] = king_generate_moves,
 	};
 	MoveList *list;
+	size_t numMoves;
+	move_t *moves;
+	move_t kingPos;
+	piece_t king;
 	struct cache_board *newCachedBoards;
 
 	/* check if the board is cached */
@@ -319,6 +308,41 @@ MoveList *board_generate_moves(Board *board)
 				return NULL;
 			}
 	}
+	/* sanitize the moves */
+	/* TODO: use the additional free bits in the board
+	 * to store the number of attacks on a square and
+	 * dynamically update that when moving
+	 */
+
+	/* find the king */
+	king = MAKE_PIECE(TURN(board), TYPE_KING);
+	for (move_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++)
+		if (BOARD_GET(board, i) == king) {
+			kingPos = i;
+			break;
+		}
+	for (numMoves = list->numMoves, moves = list->moves; numMoves != 0;
+			moves++, numMoves--) {
+		UndoData ud;
+
+		const move_t move = *moves;
+		if (MOVE_TYPE(move) == TYPE_KING) {
+			if (board_is_attacked(board, MOVE_TO(move), ENEMY(king))) {
+				printf("Had to chop off a move\n");
+				memmove(moves, moves + 1, sizeof(*moves) * numMoves);
+				list->numMoves--;
+			}
+			continue;
+		}
+		board_play_move(board, move, &ud);
+		if (board_is_attacked(board, kingPos, ENEMY(king))) {
+			memmove(moves, moves + 1, sizeof(*moves) * numMoves);
+			list->numMoves--;
+			printf("Had to chop off a move\n");
+		}
+		board_unplay_move(board, &ud);
+	}
+
 	newCachedBoards = realloc(cached_boards, sizeof(*cached_boards) *
 			(num_cached_boards + 1));
 	if (newCachedBoards == NULL)  {
