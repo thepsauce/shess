@@ -1,6 +1,9 @@
 #define BOARD_WIDTH 8
 #define BOARD_HEIGHT 8
 
+typedef int32_t offset_t;
+typedef uint32_t pos_t;
+
 #define BIT_MASK(nbits) ((1<<(nbits))-1)
 
 /**
@@ -82,13 +85,13 @@ typedef uint8_t piece_t;
 #define HALF_TURN_MASK		BIT_MASK(7)
 
 #define HALF_TURN(board) (((board)->flags>>HALF_TURN_SHIFT)&HALF_TURN_MASK)
-#define SET_HALF_TURN(board, ht) ((board)->flags = ((board)->flags & ~(HALF_TURN_MASK << HALF_TURN_SHIFT)) | ((ht) << FULL_TURN_SHIFT))
+#define SET_HALF_TURN(board, ht) ((board)->flags=((board)->flags&~(HALF_TURN_MASK<<HALF_TURN_SHIFT))|((ht)<<HALF_TURN_SHIFT))
 
 #define FULL_TURN_SHIFT		20
 #define FULL_TURN_MASK		BIT_MASK(12)
 
 #define FULL_TURN(board) (((board)->flags>>FULL_TURN_SHIFT)&FULL_TURN_MASK)
-#define SET_FULL_TURN(board, ft) ((board)->flags = ((board)->flags & ~(FULL_TURN_MASK << FULL_TURN_SHIFT)) | ((ft) << FULL_TURN_SHIFT))
+#define SET_FULL_TURN(board, ft) ((board)->flags=((board)->flags&~(FULL_TURN_MASK<<FULL_TURN_SHIFT))|((ft)<<FULL_TURN_SHIFT))
 
 typedef struct board {
 	uint32_t flags;
@@ -121,7 +124,6 @@ const char *board_to_fen(const Board *board);
  * [confused row][confused column][end condition]
  */
 typedef uint32_t move_t;
-typedef int32_t move_offset_t;
 
 #define MOVE_SIDE_SHIFT 0
 
@@ -168,29 +170,29 @@ typedef int32_t move_offset_t;
 #define MAKE_MOVE(from, to) (((from)<<MOVE_FROM_SHIFT)|((to)<<MOVE_TO_SHIFT))
 
 #define OFFSET(to, rows, cols) ({ \
-	move_t _result = (move_t) -1; \
-	const move_t _to = (to); \
-	const move_offset_t _dr = (rows); \
-	const move_offset_t _dc = (cols); \
-	const move_offset_t _r = _to / BOARD_WIDTH + _dr; \
-	const move_offset_t _c = _to % BOARD_WIDTH + _dc; \
+	pos_t _result = (pos_t) -1; \
+	const pos_t _to = (to); \
+	const offset_t _dr = (rows); \
+	const offset_t _dc = (cols); \
+	const offset_t _r = _to / BOARD_WIDTH + _dr; \
+	const offset_t _c = _to % BOARD_WIDTH + _dc; \
 	if (_r >= 0 && _c >= 0 && _r < BOARD_HEIGHT && _c < BOARD_WIDTH) \
 		_result = _r * BOARD_WIDTH + _c; \
 	_result; \
 })
-
-int move_validate(move_t *move, Board *board);
-void move_output(move_t move, FILE *fp);
-int move_input(move_t *move, FILE *fp);
-int move_parse(move_t *pMove, move_t side, const char *str);
 
 typedef struct move_list {
 	move_t *moves;
 	size_t numMoves;
 } MoveList;
 
+void move_output(move_t move, FILE *fp);
+int move_input(move_t *move, FILE *fp);
+int move_parse(move_t *pMove, piece_t side, const char *str);
+void move_getmatching(move_t move, Board *board, MoveList *matching);
+
 int movelist_add(MoveList *list, move_t move);
-bool movelist_targets(MoveList *list, move_t to);
+bool movelist_targets(MoveList *list, pos_t to);
 
 typedef struct undo_data {
 	move_t move;

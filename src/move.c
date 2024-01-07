@@ -13,53 +13,47 @@ int movelist_add(MoveList *list, move_t move)
 	return 0;
 }
 
-bool movelist_targets(MoveList *list, move_t to)
+bool movelist_targets(MoveList *list, pos_t to)
 {
-	to = MOVE_TO(to);
 	for (size_t i = 0; i < list->numMoves; i++)
 		if (MOVE_TO(list->moves[i]) == to)
 			return true;
 	return false;
 }
 
-int move_validate(move_t *move, Board *board)
+void move_getmatching(move_t move, Board *board, MoveList *matching)
 {
 	MoveList *moves;
 
-	const move_t m = *move;
-	if (MOVE_SIDE(m) != TURN(board))
-		return -1;
+	if (MOVE_SIDE(move) != TURN(board))
+		return;
 	moves = board_generate_moves(board);
 	if (moves == NULL)
-		return -1;
-	const move_t from = MOVE_FROM(m);
+		return;
+	const pos_t from = MOVE_FROM(move);
 	for (size_t i = 0; i < moves->numMoves; i++) {
 		const move_t o = moves->moves[i];
-		if ((m & o) & MOVE_CASTLE) {
-			*move = o;
-			return 0;
+		if ((move & o) & MOVE_CASTLE) {
+			movelist_add(matching, o);
+			continue;
 		}
-		if ((m | o) & MOVE_CASTLE)
+		if ((move | o) & MOVE_CASTLE)
 			continue;
-		if ((m & ~o) & MOVE_TAKES)
+		if ((move & ~o) & MOVE_TAKES)
 			continue;
-		if (MOVE_TO(o) != MOVE_TO(m))
+		if (MOVE_TO(o) != MOVE_TO(move))
 			continue;
-		if (MOVE_TYPE(m) != 0 && MOVE_TYPE(m) != MOVE_TYPE(o))
+		if (MOVE_TYPE(move) != 0 && MOVE_TYPE(move) != MOVE_TYPE(o))
 			continue;
-		if (MOVE_PROMOTION(o) != MOVE_PROMOTION(m))
-			continue;
-		const move_t of = MOVE_FROM(o);
-		if (!(m & MOVE_CONFUSED_COL) &&
+		const pos_t of = MOVE_FROM(o);
+		if (!(move & MOVE_CONFUSED_COL) &&
 				from % BOARD_WIDTH != of % BOARD_WIDTH)
 			continue;
-		if (!(m & MOVE_CONFUSED_ROW) &&
+		if (!(move & MOVE_CONFUSED_ROW) &&
 				from / BOARD_WIDTH != of / BOARD_WIDTH)
 			continue;
-		*move = o;
-		return 0;
+		movelist_add(matching, o);
 	}
-	return -1;
 }
 
 void move_output(move_t move, FILE *fp)
@@ -85,8 +79,8 @@ void move_output(move_t move, FILE *fp)
 	} else {
 		const piece_t type = MOVE_TYPE(move);
 		const piece_t prom = MOVE_PROMOTION(move);
-		const move_t from = MOVE_FROM(move);
-		const move_t to = MOVE_TO(move);
+		const pos_t from = MOVE_FROM(move);
+		const pos_t to = MOVE_TO(move);
 		if (type != TYPE_PAWN)
 			fputc(TYPE_TO_CHAR(type), fp);
 		if (move & MOVE_CONFUSED) {
@@ -97,8 +91,8 @@ void move_output(move_t move, FILE *fp)
 		}
 		if (move & MOVE_TAKES)
 			fputc('x', fp);
-		const move_t row = to / BOARD_WIDTH;
-		const move_t col = to % BOARD_WIDTH;
+		const pos_t row = to / BOARD_WIDTH;
+		const pos_t col = to % BOARD_WIDTH;
 		fprintf(fp, "%c%c", 'a' + col, '1' + row);
 		if (prom != 0)
 			fprintf(fp, "=%c", TYPE_TO_CHAR(prom));
@@ -109,10 +103,11 @@ void move_output(move_t move, FILE *fp)
 		fputc('#', fp);
 }
 
-int move_parse(move_t *pMove, move_t side, const char *str)
+int move_parse(move_t *pMove, piece_t side, const char *str)
 {
-	move_t move = side;
+	move_t move;
 
+	move = side << MOVE_SIDE_SHIFT;
 	if (str[0] == 'O' || str[0] == 'o') {
 		if (str[1] != '-')
 			return -1;
@@ -126,7 +121,7 @@ int move_parse(move_t *pMove, move_t side, const char *str)
 			move |= MOVE_CASTLE_SHORT;
 		}
 	} else {
-		move_t col, row;
+		pos_t col, row;
 
 		switch (str[0]) {
 		case 'P':

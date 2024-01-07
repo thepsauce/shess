@@ -172,7 +172,7 @@ static int parser_read_move(Parser *parser)
 			move |= MOVE_CASTLE_SHORT;
 		}
 	} else {
-		move_t col, row;
+		pos_t col, row;
 
 		switch (parser->c) {
 		case 'P':
@@ -360,7 +360,10 @@ int gamedata_input(GameData *data, FILE *fp)
 		if (isalpha(parser.c)) {
 			if (parser_read_move(&parser) < 0)
 				goto err;
-			if (history_add(&data->history, parser.move, 0) < 0)
+			const UndoData ud = {
+				parser.move, 0, 0
+			};
+			if (history_add(&data->history, &ud) < 0)
 				goto err;
 			parser.side = SIDE_ENEMY(parser.side);
 		}
@@ -389,13 +392,13 @@ int gamedata_output(GameData *data, FILE *fp)
 			if (move > 0)
 				fputc(' ', fp);
 			fprintf(fp, "%zu.", move / 2 + 1 + parity);
-			if (MOVE_SIDE(node->move) == SIDE_BLACK) {
+			if (MOVE_SIDE(node->data.move) == SIDE_BLACK) {
 				fprintf(fp, "...");
 				parity ^= 1;
 			}
 		}
 		fprintf(fp, " ");
-		move_output(node->move, fp);
+		move_output(node->data.move, fp);
 		if (node->numChildren == 0)
 			break;
 		node = node->children[0];

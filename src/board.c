@@ -47,7 +47,7 @@ void board_setup_starting(Board *board)
 /* Example: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1 */
 int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 {
-	move_t row, col;
+	pos_t row, col;
 	piece_t piece;
 	char up;
 	uint32_t halfTurns, fullTurns;
@@ -140,7 +140,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 	fen++;
 
 	if (*fen != '-') {
-		move_t sq;
+		pos_t sq;
 
 		sq = 0;
 		if (*fen < 'a' || *fen > 'h')
@@ -180,7 +180,7 @@ int board_setup_fen(Board *board, const char *fen, const char **pEnd)
 		fullTurns *= 10;
 		fullTurns += *fen - '0';
 	}
-	board->flags |= fullTurns << HALF_TURN_SHIFT;
+	board->flags |= fullTurns << FULL_TURN_SHIFT;
 
 	if (*fen != '\0')
 		goto end;
@@ -195,14 +195,16 @@ end:
 
 void board_play_move(Board *board, move_t move, UndoData *ud)
 {
-	move_t from, to;
+	pos_t from, to;
 	piece_t promot;
 	piece_t piece;
+	pos_t kingPos;
+	piece_t king;
 
 	ud->move = move;
 	ud->flags = board->flags;
 	if (move & MOVE_CASTLE) {
-		const move_t off = TURN(board) == SIDE_WHITE ? 0 :
+		const pos_t off = TURN(board) == SIDE_WHITE ? 0 :
 			(BOARD_HEIGHT - 1) * BOARD_WIDTH;
 		piece = MAKE_PIECE(TURN(board), TYPE_KING);
 		const piece_t rook = MAKE_PIECE(TURN(board), TYPE_ROOK);
@@ -228,9 +230,9 @@ void board_play_move(Board *board, move_t move, UndoData *ud)
 		BOARD_SET(board, to, piece);
 		BOARD_SET(board, from, 0);
 
-		const move_t enp = EN_PASSANT(board);
+		const pos_t enp = EN_PASSANT(board);
 		if (TYPE(piece) == TYPE_PAWN && enp != 0 && to == enp) {
-			move_t thePawn; /* the pawn that moved two squares */
+			pos_t thePawn; /* the pawn that moved two squares */
 
 			const int dir = DIRECTION(TURN(board));
 			thePawn = to / BOARD_WIDTH;
@@ -247,7 +249,7 @@ void board_play_move(Board *board, move_t move, UndoData *ud)
 	switch (TYPE(piece)) {
 	case TYPE_PAWN: {
 		/* set en passant if a pawn moved by two squares */
-		move_t absDelta;
+		pos_t absDelta;
 
 		if (to > from)
 			absDelta = to - from;
@@ -262,7 +264,7 @@ void board_play_move(Board *board, move_t move, UndoData *ud)
 	}
 	case TYPE_ROOK: {
 		/* remove castle rights for this side */
-		const move_t row = TURN(board) == SIDE_WHITE ? 0 :
+		const pos_t row = TURN(board) == SIDE_WHITE ? 0 :
 			BOARD_HEIGHT - 1;
 		if (from == row * BOARD_WIDTH)
 			/* *the* bit trick */
@@ -283,18 +285,28 @@ void board_play_move(Board *board, move_t move, UndoData *ud)
 	if (TURN(board) == SIDE_BLACK)
 		SET_FULL_TURN(board, FULL_TURN(board) + 1);
 	SWITCH_TURN(board);
+	board->flags &= ~CHECK;
+	/* find the king TODO: see move_gen.c:find the king */
+	king = MAKE_PIECE(TURN(board), TYPE_KING);
+	for (pos_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++)
+		if (BOARD_GET(board, i) == king) {
+			kingPos = i;
+			break;
+		}
+	if (board_is_attacked(board, kingPos, ENEMY(king)))
+		board->flags |= CHECK;
 }
 
 void board_unplay_move(Board *board, const UndoData *ud)
 {
-	move_t from, to;
+	pos_t from, to;
 	piece_t promot;
 	piece_t piece;
 
 	const move_t move = ud->move;
 	board->flags = ud->flags;
 	if (move & MOVE_CASTLE) {
-		const move_t off = TURN(board) == SIDE_WHITE ? 0 :
+		const pos_t off = TURN(board) == SIDE_WHITE ? 0 :
 			(BOARD_HEIGHT - 1) * BOARD_WIDTH;
 		piece = MAKE_PIECE(TURN(board), TYPE_KING);
 		const piece_t rook = MAKE_PIECE(TURN(board), TYPE_ROOK);
@@ -319,9 +331,9 @@ void board_unplay_move(Board *board, const UndoData *ud)
 		BOARD_SET(board, from, piece);
 		BOARD_SET(board, to, ud->capture);
 
-		const move_t enp = EN_PASSANT(board);
+		const pos_t enp = EN_PASSANT(board);
 		if (TYPE(piece) == TYPE_PAWN && enp != 0 && to == enp) {
-			move_t thePawn; /* the pawn that moved two squares */
+			pos_t thePawn; /* the pawn that moved two squares */
 
 			const int dir = DIRECTION(TURN(board));
 			thePawn = to / BOARD_WIDTH;
@@ -352,11 +364,11 @@ void board_neat_output(const Board *board, FILE *fp)
 		[MAKE_PIECE(SIDE_BLACK, TYPE_KING)] = "♚",
 	};
 
-	for (move_t row = 0; row < BOARD_HEIGHT; row++) {
+	for (pos_t row = 0; row < BOARD_HEIGHT; row++) {
 		fprintf(fp, "+---+---+---+---+---+---+---+---+\n");
 		fprintf(fp, "|");
-		for (move_t col = 0; col < BOARD_WIDTH; col++) {
-			const move_t sq = (BOARD_HEIGHT - 1 - row) *
+		for (pos_t col = 0; col < BOARD_WIDTH; col++) {
+			const pos_t sq = (BOARD_HEIGHT - 1 - row) *
 				BOARD_WIDTH + col;
 			const piece_t piece = BOARD_GET(board, sq);
 
@@ -402,14 +414,14 @@ const char *board_to_fen(const Board *board)
 {
 	static char fen[128];
 	size_t index = 0;
-	move_t empty = 0;
+	pos_t empty = 0;
 	char ch;
 
-	for (move_t row = 0; row < BOARD_HEIGHT; row++) {
-		if (row > 0)
+	for (pos_t row = BOARD_HEIGHT; (row--) > 0; ) {
+		if (row != BOARD_HEIGHT - 1)
 			fen[index++] = '/';
-		for (move_t col = 0; col < BOARD_WIDTH; col++) {
-			const move_t sq = row * BOARD_WIDTH + col;
+		for (pos_t col = 0; col < BOARD_WIDTH; col++) {
+			const pos_t sq = row * BOARD_WIDTH + col;
 			const piece_t piece = BOARD_GET(board, sq);
 			if (TYPE(piece) == 0) {
 				empty++;
@@ -447,7 +459,7 @@ const char *board_to_fen(const Board *board)
 		fen[index++] = '-';
 
 	fen[index++] = ' ';
-	const move_t enp = EN_PASSANT(board);
+	const pos_t enp = EN_PASSANT(board);
 	if (enp == 0) {
 		fen[index++] = '-';
 	} else {

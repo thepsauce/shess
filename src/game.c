@@ -54,6 +54,7 @@ int history_add(History *hist, const UndoData *ud)
 		return -1;
 	node->data = *ud;
 	node->children = NULL;
+	node->numChildren = 0;
 	newChildren = realloc(hist->cur->children,
 			sizeof(*hist->cur->children) *
 			(hist->cur->numChildren + 1));

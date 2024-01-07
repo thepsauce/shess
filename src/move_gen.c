@@ -7,8 +7,8 @@ struct cache_board {
 size_t num_cached_boards;
 
 struct offset {
-	move_offset_t rows;
-	move_offset_t cols;
+	offset_t rows;
+	offset_t cols;
 };
 
 static const struct offset knight_offsets[] = {
@@ -47,9 +47,10 @@ static const struct offset king_offsets[] = {
 	{  1,  0 }
 };
 
-bool board_is_attacked(Board *board, move_t sq, piece_t side)
+bool board_is_attacked(Board *board, pos_t sq, piece_t side)
 {
-	move_t to;
+	pos_t to;
+	piece_t piece;
 	/* 1. is a rook/queen above/below/left/right of this square
 	 * 2. is a knight targetting this square
 	 * 3. is a pawn attacking this square
@@ -59,50 +60,48 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 	for (size_t i = 0; i < ARRLEN(rook_offsets); i++) {
 		const struct offset o = rook_offsets[i];
 		to = sq;
-		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
-			const piece_t p = BOARD_GET(board, to);
-			if (p == 0)
-				continue;
-			if (SIDE(p) != side)
+		while (to = OFFSET(to, o.rows, o.cols), to != (pos_t) -1) {
+			piece = BOARD_GET(board, to);
+			if (piece != 0)
 				break;
-			if (TYPE(p) == TYPE_ROOK || TYPE(p) == TYPE_QUEEN)
-				return true;
 		}
+		if (to != (pos_t) -1 && SIDE(piece) == side &&
+				(TYPE(piece) == TYPE_ROOK || TYPE(piece) == TYPE_QUEEN))
+			return true;
 	}
 
 	/* bishop/queen diagonal */
 	for (size_t i = 0; i < ARRLEN(bishop_offsets); i++) {
-		const struct offset o = rook_offsets[i];
+		const struct offset o = bishop_offsets[i];
 		to = sq;
-		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
-			const piece_t p = BOARD_GET(board, to);
-			if (p == 0)
-				continue;
-			if (SIDE(p) != side)
+		while (to = OFFSET(to, o.rows, o.cols), to != (pos_t) -1) {
+			piece = BOARD_GET(board, to);
+			if (piece != 0)
 				break;
-			if (TYPE(p) == TYPE_BISHOP || TYPE(p) == TYPE_QUEEN)
-				return true;
 		}
+		if (to != (pos_t) -1 && SIDE(piece) == side &&
+				(TYPE(piece) == TYPE_BISHOP || TYPE(piece) == TYPE_QUEEN))
+			return true;
 	}
 
 	/* knight */
 	for (size_t i = 0; i < ARRLEN(knight_offsets); i++) {
 		const struct offset o = knight_offsets[i];
-		const move_t to = OFFSET(sq, o.rows, o.cols);
-		if (to == (move_t) -1)
+		const pos_t to = OFFSET(sq, o.rows, o.cols);
+		if (to == (pos_t) -1)
 			continue;
-		const piece_t p = BOARD_GET(board, to);
-		if (MAKE_PIECE(side, TYPE_KNIGHT) == p)
+		piece = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_KNIGHT) == piece)
 			return true;
 	}
 
 	/* pawn */
-	for (move_offset_t i = -1; i <= 1; i += 2) {
-		to = OFFSET(sq, i, -DIRECTION(side));
-		if (to == (move_t) -1)
+	for (offset_t i = -1; i <= 1; i += 2) {
+		to = OFFSET(sq, -DIRECTION(side), i);
+		if (to == (pos_t) -1)
 			continue;
-		const piece_t p = BOARD_GET(board, to);
-		if (MAKE_PIECE(side, TYPE_PAWN) == p)
+		piece = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_PAWN) == piece)
 			return true;
 	}
 
@@ -110,10 +109,10 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 	for (size_t i = 0; i < ARRLEN(king_offsets); i++) {
 		const struct offset o = king_offsets[i];
 		to = OFFSET(sq, o.rows, o.cols);
-		if (to == (move_t) -1)
+		if (to == (pos_t) -1)
 			continue;
-		const piece_t p = BOARD_GET(board, to);
-		if (MAKE_PIECE(side, TYPE_KING) == p)
+		piece = BOARD_GET(board, to);
+		if (MAKE_PIECE(side, TYPE_KING) == piece)
 			return true;
 	}
 	return false;
@@ -121,7 +120,7 @@ bool board_is_attacked(Board *board, move_t sq, piece_t side)
 
 static inline int pawn_add_move(MoveList *list, move_t move)
 {
-	const move_t to = MOVE_TO(move);
+	const pos_t to = MOVE_TO(move);
 	/* if the pawn reached the end */
 	if (to / BOARD_WIDTH == 0 || to / BOARD_WIDTH == BOARD_HEIGHT - 1) {
 		if (movelist_add(list, move | (TYPE_KNIGHT <<
@@ -143,12 +142,12 @@ static inline int pawn_add_move(MoveList *list, move_t move)
 	return 0;
 }
 
-static int pawn_generate_moves(Board *board, move_t from, MoveList *list)
+static int pawn_generate_moves(Board *board, pos_t from, MoveList *list)
 {
-	move_t to;
+	pos_t to;
 	piece_t target;
 
-	const move_t enp = EN_PASSANT(board);
+	const pos_t enp = EN_PASSANT(board);
 	const piece_t pawn = BOARD_GET(board, from);
 	const piece_t side = SIDE(pawn);
 	const int dir = DIRECTION(side);
@@ -159,7 +158,7 @@ static int pawn_generate_moves(Board *board, move_t from, MoveList *list)
 			return -1;
 
 		/* double move if on home row */
-		const move_t home = side == SIDE_WHITE ? 1 : BOARD_HEIGHT - 2;
+		const pos_t home = side == SIDE_WHITE ? 1 : BOARD_HEIGHT - 2;
 		if (from / BOARD_WIDTH == home) {
 			to += dir * BOARD_WIDTH;
 			target = BOARD_GET(board, to);
@@ -195,16 +194,17 @@ static int pawn_generate_moves(Board *board, move_t from, MoveList *list)
 	return 0;
 }
 
-static inline int generate_moves(Board *board, move_t from, MoveList *list,
+static inline int generate_moves(Board *board, pos_t from, MoveList *list,
 		const struct offset *offsets, size_t numOffsets, bool single)
 {
-	move_t to, move;
+	pos_t to;
+	move_t move;
 
 	const piece_t piece = BOARD_GET(board, from);
 	for (size_t i = 0; i < numOffsets; i++) {
 		const struct offset o = offsets[i];
 		to = from;
-		while (to = OFFSET(to, o.rows, o.cols), to != (move_t) -1) {
+		while (to = OFFSET(to, o.rows, o.cols), to != (pos_t) -1) {
 			const piece_t p = BOARD_GET(board, to);
 			move = MAKE_MOVE(from, to) | piece;
 			if (p != 0) {
@@ -221,31 +221,31 @@ static inline int generate_moves(Board *board, move_t from, MoveList *list,
 	return 0;
 }
 
-static int knight_generate_moves(Board *board, move_t from, MoveList *list)
+static int knight_generate_moves(Board *board, pos_t from, MoveList *list)
 {
 	return generate_moves(board, from, list,
 			knight_offsets, ARRLEN(knight_offsets), true);
 }
 
-static int bishop_generate_moves(Board *board, move_t from, MoveList *list)
+static int bishop_generate_moves(Board *board, pos_t from, MoveList *list)
 {
 	return generate_moves(board, from, list,
 			bishop_offsets, ARRLEN(bishop_offsets), false);
 }
 
-static int rook_generate_moves(Board *board, move_t from, MoveList *list)
+static int rook_generate_moves(Board *board, pos_t from, MoveList *list)
 {
 	return generate_moves(board, from, list,
 			rook_offsets, ARRLEN(rook_offsets), false);
 }
 
-static int queen_generate_moves(Board *board, move_t from, MoveList *list)
+static int queen_generate_moves(Board *board, pos_t from, MoveList *list)
 {
 	return generate_moves(board, from, list,
 			king_offsets, ARRLEN(king_offsets), false);
 }
 
-static int king_generate_moves(Board *board, move_t from, MoveList *list)
+static int king_generate_moves(Board *board, pos_t from, MoveList *list)
 {
 	const piece_t king = BOARD_GET(board, from);
 	if (!(board->flags & CHECK)) {
@@ -272,7 +272,7 @@ static int king_generate_moves(Board *board, move_t from, MoveList *list)
 
 MoveList *board_generate_moves(Board *board)
 {
-	static int (*const generators[])(Board *board, move_t index, MoveList *list) = {
+	static int (*const generators[])(Board *board, pos_t index, MoveList *list) = {
 		[TYPE_PAWN] = pawn_generate_moves,
 		[TYPE_KNIGHT] = knight_generate_moves,
 		[TYPE_BISHOP] = bishop_generate_moves,
@@ -283,7 +283,7 @@ MoveList *board_generate_moves(Board *board)
 	MoveList *list;
 	size_t numMoves;
 	move_t *moves;
-	move_t kingPos;
+	pos_t kingPos;
 	piece_t king;
 	struct cache_board *newCachedBoards;
 
@@ -297,7 +297,7 @@ MoveList *board_generate_moves(Board *board)
 	if (list == NULL)
 		return NULL;
 	memset(list, 0, sizeof(*list));
-	for (move_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++) {
+	for (pos_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++) {
 		const piece_t piece = BOARD_GET(board, i);
 		if (TURN(board) != SIDE(piece))
 			continue;
@@ -316,7 +316,7 @@ MoveList *board_generate_moves(Board *board)
 
 	/* find the king */
 	king = MAKE_PIECE(TURN(board), TYPE_KING);
-	for (move_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++)
+	for (pos_t i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++)
 		if (BOARD_GET(board, i) == king) {
 			kingPos = i;
 			break;
@@ -328,9 +328,9 @@ MoveList *board_generate_moves(Board *board)
 		const move_t move = *moves;
 		if (MOVE_TYPE(move) == TYPE_KING) {
 			if (board_is_attacked(board, MOVE_TO(move), ENEMY(king))) {
-				printf("Had to chop off a move\n");
 				memmove(moves, moves + 1, sizeof(*moves) * numMoves);
 				list->numMoves--;
+				moves--;
 			}
 			continue;
 		}
@@ -338,7 +338,7 @@ MoveList *board_generate_moves(Board *board)
 		if (board_is_attacked(board, kingPos, ENEMY(king))) {
 			memmove(moves, moves + 1, sizeof(*moves) * numMoves);
 			list->numMoves--;
-			printf("Had to chop off a move\n");
+			moves--;
 		}
 		board_unplay_move(board, &ud);
 	}
