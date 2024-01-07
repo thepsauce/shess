@@ -47,22 +47,23 @@ static const struct offset king_offsets[] = {
 	{  1,  0 }
 };
 
-bool board_is_attacked(Board *board, pos_t sq, piece_t side)
+bool board_is_attacked(Board *board, pos_t pos, piece_t side)
 {
 	pos_t to;
 	piece_t piece;
-	/* 1. is a rook/queen above/below/left/right of this square
-	 * 2. is a knight targetting this square
-	 * 3. is a pawn attacking this square
-	 * 4. is the king touching this square
+
+	/* this king is used because we want to pierce through the enemy king
+	 * and say that those square are also attacked
 	 */
+	const piece_t king = MAKE_PIECE(SIDE_ENEMY(side), TYPE_KING);
+
 	/* rook/queen not diagonal */
 	for (size_t i = 0; i < ARRLEN(rook_offsets); i++) {
 		const struct offset o = rook_offsets[i];
-		to = sq;
+		to = pos;
 		while (to = OFFSET(to, o.rows, o.cols), to != (pos_t) -1) {
 			piece = BOARD_GET(board, to);
-			if (piece != 0)
+			if (piece != 0 && piece != king)
 				break;
 		}
 		if (to != (pos_t) -1 && SIDE(piece) == side &&
@@ -73,10 +74,10 @@ bool board_is_attacked(Board *board, pos_t sq, piece_t side)
 	/* bishop/queen diagonal */
 	for (size_t i = 0; i < ARRLEN(bishop_offsets); i++) {
 		const struct offset o = bishop_offsets[i];
-		to = sq;
+		to = pos;
 		while (to = OFFSET(to, o.rows, o.cols), to != (pos_t) -1) {
 			piece = BOARD_GET(board, to);
-			if (piece != 0)
+			if (piece != 0 && piece != king)
 				break;
 		}
 		if (to != (pos_t) -1 && SIDE(piece) == side &&
@@ -87,7 +88,7 @@ bool board_is_attacked(Board *board, pos_t sq, piece_t side)
 	/* knight */
 	for (size_t i = 0; i < ARRLEN(knight_offsets); i++) {
 		const struct offset o = knight_offsets[i];
-		const pos_t to = OFFSET(sq, o.rows, o.cols);
+		const pos_t to = OFFSET(pos, o.rows, o.cols);
 		if (to == (pos_t) -1)
 			continue;
 		piece = BOARD_GET(board, to);
@@ -97,7 +98,7 @@ bool board_is_attacked(Board *board, pos_t sq, piece_t side)
 
 	/* pawn */
 	for (offset_t i = -1; i <= 1; i += 2) {
-		to = OFFSET(sq, -DIRECTION(side), i);
+		to = OFFSET(pos, -DIRECTION(side), i);
 		if (to == (pos_t) -1)
 			continue;
 		piece = BOARD_GET(board, to);
@@ -108,7 +109,7 @@ bool board_is_attacked(Board *board, pos_t sq, piece_t side)
 	/* king */
 	for (size_t i = 0; i < ARRLEN(king_offsets); i++) {
 		const struct offset o = king_offsets[i];
-		to = OFFSET(sq, o.rows, o.cols);
+		to = OFFSET(pos, o.rows, o.cols);
 		if (to == (pos_t) -1)
 			continue;
 		piece = BOARD_GET(board, to);
